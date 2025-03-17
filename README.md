@@ -26,11 +26,11 @@ This is the back-end part of FaktaIklim application.<br>
 
 1. Clone the repository
    ```sh
-   $ git clone https://github.com/prosa-ai-id/faktaiklim-backend.git
+   $ git clone https://gitlab.prosa.ai/prosa-ai/platform/fair-forward-backend.git
    ```
 2. Change active directory to the project folder
    ```sh
-   $ cd faktaiklim-backend
+   $ cd fair-forward-frontend
    ```
 3. Install required dependencies
    ```sh
