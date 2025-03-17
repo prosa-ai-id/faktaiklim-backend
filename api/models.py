@@ -68,3 +68,19 @@ class Issue(Base):
     topic = Column(String)
     created_at = Column(DateTime, default=datetime.datetime.now)
     created_by = Column(String)
+
+class HistoryCheck(Base):
+    __tablename__ = 'history_check'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_host = Column(String)
+    user_ip = Column(String)
+    search_text = Column(Text)
+    result_status = Column(String)
+    result_hoax_probability = Column(String)
+    result_relevant_item = Column(Text)
+    result_topic = Column(Text)
+    result_message = Column(Text)
+    result_time = Column(DateTime)
+    created_at = Column(DateTime, default=datetime.datetime.now)
+    created_by = Column(String)

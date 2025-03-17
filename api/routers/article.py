@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import desc, select
 from api import config, schemas, models
 from api.database import get_db
-from api.models import Article,Topic
+from api.models import Article, Topic, HistoryCheck
 from datetime import datetime
 import pandas, shutil, requests, json
 
@@ -639,11 +639,25 @@ def crawl_kominfo(
 
 @router.post('/check/', status_code=status.HTTP_201_CREATED)
 def check(
+        request: Request,
         text: str = "Penyelidikan oleh jaksa penuntut di New York, Maryland, California, dan Kepulauan Virgin yang memeriksa apakah tindakan ExxonMobil melanggar undang-undang perlindungan konsumen atau investor menunjukkan pentingnya memastikan bahwa perusahaan bahan bakar fosil mematuhi peraturan terkait perubahan iklim",
         db: Session = Depends(get_db)
     ):
     status_code = status.HTTP_201_CREATED
     try:
+
+        #ip_forward = request.headers.get('HTTP_X_FORWARDED_FOR')
+        #ip_forward = request.headers.get("X-Envoy-External-Address")
+        ip_forward = get_client_ip(request)
+        # Save History Check
+        history = HistoryCheck(
+            search_text = text,
+            user_host = request.client.host,
+            user_ip = ip_forward
+        )
+        db.add(history)
+        db.commit()
+
         # Call API NLP Check
         headers = {
             "Content-Type": "application/json",
@@ -664,7 +678,7 @@ def check(
             relevant_item = data['relevant_items']
             hoax_probability = data['hoax_probability']
         else:
-            status_result = "error"
+            status_result = "api nlp check error"
             message = response.text
         
         # Call API NLP 
@@ -674,7 +688,7 @@ def check(
             data = response.json()
             topic = data
         else:
-            status_result = "error"
+            status_result = "api nlp topic error"
             message = response.text
 
         result = {
@@ -684,6 +698,19 @@ def check(
             "topic": topic,
             "message": message
         }
+
+        history = db.query(HistoryCheck).filter(HistoryCheck.id==history.id)
+        history.update(
+            {
+                'result_status':status_result,
+                'result_hoax_probability':hoax_probability,
+                'result_relevant_item':json.dumps(relevant_item),
+                'result_topic':json.dumps(topic),
+                'result_message':message,
+                'result_time':datetime.now()
+            }
+        )
+        db.commit()
 
     except Exception as e:
         return JSONResponse(
@@ -695,3 +722,59 @@ def check(
     return {
         "data":result
     }
+
+@router.get('/export-history/', status_code=status.HTTP_200_OK)
+def list(
+        db: Session = Depends(get_db),
+        start_date: Optional[str] = "2024-12-01",
+        end_date: Optional[str] = "2024-12-30"
+    ):
+    status_code = status.HTTP_200_OK
+    try:
+        list_history = db.query(HistoryCheck).all()
+        list_date = []
+        list_user = []
+        list_search = []
+        list_status = []
+        list_probability = []
+        list_topic = []
+        for history in list_history:
+            list_date.append(history.created_at)
+            list_user.append(history.user_ip)
+            list_search.append(history.search_text)
+            list_status.append(history.result_status)
+            list_probability.append(history.result_hoax_probability)
+            list_topic.append(history.result_topic)
+
+        list_result = {
+            'Date': list_date,
+            'User IP': list_user,
+            'Search': list_search,
+            'Status': list_status,
+            'HoaxProbability': list_probability,
+            'Topic': list_topic,
+        }
+
+        df = pandas.DataFrame(data = list_result)
+        file_name = "export_history.xlsx"
+        df.to_excel(file_name, index=False)
+        file_response = FileResponse(file_name, filename = file_name)
+        return  file_response
+    except Exception as e:
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST if status_code==status.HTTP_200_OK else status_code,
+            content={
+                "message":str(e),
+            }
+        )
+
+
+def get_client_ip(request: Request) -> str:
+    """Gets the client's IP address, handling proxy headers."""
+    if "X-Forwarded-For" in request.headers:
+        return request.headers["X-Forwarded-For"].split(",")[0].strip()
+    if "X-Real-IP" in request.headers:
+        return request.headers["X-Real-IP"]
+    if request.client:
+        return request.client.host
+    return "unknown"

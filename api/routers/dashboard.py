@@ -46,7 +46,7 @@ def dashboard(
             list_tanggal.append(tanggal)
 
             #issue_instagram = db.query(Issue).filter(Issue.social_media=='instagram', Issue.type=='HOAX', Issue.created_at>=tanggal, Issue.created_at<=tanggal).count()
-            issue_instagram = db.query(Issue).filter(Issue.social_media=='instagram', Issue.type=='HOAX').count()
+            issue_instagram = db.query(Issue).filter(Issue.social_media=='instagram', Issue.type=='HOAX', Issue.created_at>=tanggal_awal, Issue.created_at<=tanggal_akhir).count()
             #list_instagram.append(random.randint(1, 100))
             list_instagram.append(issue_instagram)
             #issue_twitter = db.query(Issue).filter(Issue.social_media=='twitter', Issue.type=='HOAX', Issue.created_at>=tanggal, Issue.created_at<=tanggal).count()

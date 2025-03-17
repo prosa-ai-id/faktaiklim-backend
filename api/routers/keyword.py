@@ -9,7 +9,7 @@ from api import config, schemas, models
 from api.database import get_db
 from api.models import Keyword, Issue
 
-import requests, json
+import requests, json, time
 from api import config
 from apify_client import ApifyClient
 from datetime import datetime
@@ -163,6 +163,7 @@ def medsos(db: Session = Depends(get_db)):
     try:
         data = db.query(Keyword).all()
         for item in data:
+          check = 'apify'
           query = item.name
 
           # APIFY/INSTAGRAM
@@ -228,6 +229,7 @@ def medsos(db: Session = Depends(get_db)):
         # CHECK HOAX
         list_issues = db.query(Issue).filter(Issue.type=='').all()
         for issue in list_issues:
+            check = 'x-api-key'
             # check hoax
             headers = {
                 "Content-Type": "application/json",
@@ -252,12 +254,14 @@ def medsos(db: Session = Depends(get_db)):
                     }
                 )
                 db.commit()
+            time.sleep(10)
 
     except Exception as e:
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content={
                 "message":str(e),
+                "check":check,
             }
         )
     return {
